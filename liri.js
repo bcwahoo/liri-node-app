@@ -1,6 +1,7 @@
 require("dotenv").config();
 const inquirer = require("inquirer");
 const SpotifyNodeAPI = require("node-spotify-api");
+var moment = require("moment");
 const axios = require("axios");
 const keys = require("./keys.js");
 const spotify = new SpotifyNodeAPI(keys.spotify);
@@ -38,6 +39,7 @@ function send2Api(answers) {
   userInput = answers.subject;
   userInput = userInput.split(" ").join("+");
 
+
   switch (answers.cmd) {
     case "concert-this":
       send2Concert(userInput);
@@ -60,8 +62,8 @@ function send2Api(answers) {
 }
 
 function send2Movie(userInput) {
-  if (userInput == "") {
-    userInput = encodeURIComponent('Mr Nobody');
+  if (userInput === undefined) {
+    userInput = encodeURIComponent("Mr Nobody");
   }
 
   url = `http://www.omdbapi.com/?t=${userInput}&y=&plot=short&apikey=trilogy`;
@@ -69,18 +71,16 @@ function send2Movie(userInput) {
   return axios
     .get(url)
     .then(response => {
+      var rd = response.data;
       console.log(
-      `${response.data.Title}\n
-          Release Year: ${response.data.Year}\n
-          IMDB Rating: ${response.data.imdbRating}\n
-          Rotten Tomatoe: ${response.data.Rating}\n
-          Country: ${response.data.Country}\n
-          Language: ${response.data.Language}\n
-          Plot: ${response.data.Plot}\n
-          Actors: ${response.data.Actors}
-          `);
-          console.log(url);
-          
+        `${rd.Title}\n
+          Release Year: ${rd.Year}\n
+          Staring: ${rd.Actors}\n
+          IMDB Rating: ${rd.imdbRating} Rotten Tomatoe: ${rd.Ratings[1].Value}\n
+          Country: ${rd.Country} Language: ${rd.Language}\n\n
+          Plot: ${rd.Plot}\n`
+      );
+      console.log(url);
     })
     .catch(err => {
       console.log(err.message);
@@ -90,23 +90,32 @@ function send2Movie(userInput) {
 function send2Concert(userInput) {
   let url;
 
-  if (userInput == "") {
-    userInput = encodeURIComponent('Wu-Tang Clan');
+  if (userInput === "") {
+    userInput = "Wu-Tang Clan";
   }
 
-  url = `https://rest.bandsintown.com/artists/${userInput}/events?app_id=codingbootcamp`;
+  var showSelecta = encodeURIComponent(userInput);
+
+  url = `https://rest.bandsintown.com/artists/${showSelecta}/events?app_id=codingbootcamp`;
 
   return axios
     .get(url)
     .then(response => {
-      console.log(url);
-      console.log(
-      `Name of Venue: ${response.data.Artist}\n
-          Location: ${response.data.imdbRating}\n
-          Date: ${response.data.Rating}\n`);
+      var rd = response.data;
 
-          
-          
+      for (var loop = 0; loop < rd.length; loop++) {
+        var show = rd[loop];
+      }
+      console.log(url);
+
+      console.log(
+        `Great Choice! Look at some upcoming shows I've found:\n
+        The next show for ${userInput} is:\n
+        Name of Venue: ${show.venue.name}\n
+        Location: ${show.venue.region || show.venue.country}\n
+        Date: ${ moment(show.datetime).format("MM/DD/YYYY")}\n
+        Here are links for some tickets: ${show.url}`
+      );
     })
     .catch(err => {
       console.log(err.message);
@@ -114,27 +123,40 @@ function send2Concert(userInput) {
     });
 }
 
-
 function send2Spotify(userInput) {
-  if (userInput == "") {
+  function artistArray(artist){return artist.name;};
+  var songSelecta = JSON.stringify(userInput);
+  
+
+  if (userInput === "") {
     userInput = "The Sign";
   }
-  spotify
-    .search({ type: "track", query: userInput })
-    .then(function(response) {
-      console.log(response);
-    })
-    .catch(function(err) {
-      console.log(err);
-    });
-}
+
+  
+  spotify.search({ type: "track", query: songSelecta, limit: 1 }, function(err, data) {
+    if (err) {
+      console.log("Error occurred: " + err);
+      return;
+    }
+    console.log(songSelecta);    
+    
+    var songs = data.tracks.items;
+
+    for (var i = 0; i < songs.length; i++) {
+      console.log(`What a great song!\n
+    Your song: ${songs[i].name} is from the album ${songs[i].album.name} by ${songs[i].artists.map(artistArray)} which was released on ${songs[i].album.release_date}.\n
+    I found a preview for you to enjoy: ${songs[i].preview_url}\n
+    --------------------------------------------------`);
+      }
+    }
+  );
+};
 
 /**
  * The run function, makes the script go zoom.
  */
 function run() {
-  getUserCmd()
-  .then(send2Api);
+  getUserCmd().then(send2Api);
   // .then(send2Print)
 }
 
